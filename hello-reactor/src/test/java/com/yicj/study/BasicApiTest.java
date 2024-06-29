@@ -1,6 +1,12 @@
 package com.yicj.study;
 
+import lombok.extern.log4j.Log4j;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
+import org.reactivestreams.Subscription;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
@@ -9,7 +15,9 @@ import reactor.util.context.Context;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -21,28 +29,54 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author yicj
  * @since 2024年06月24日 22:11
  */
+@Slf4j
 // https://blog.csdn.net/gnwu1111/article/details/136917938
 class BasicApiTest {
 
+    //Logger log = LoggerFactory.getLogger(BasicApiTest.class) ;
     @Test
-    void testThread() throws IOException {
+    void hello(){
+        log.info("hello world");
+        Flux.just(1, 2, 3, 45, 0, 8).doOnNext(value -> {
+            System.out.println("一起玩" + value + Thread.currentThread());
+        }).subscribe(new BaseSubscriber<>() {
+            @Override
+            protected void hookOnSubscribe(Subscription subscription) {
+                System.out.println("绑定成功" + Thread.currentThread());
+                request(1); // 向发布者请求 1 次数据，n 表示请求 n 次数据
+                // requestUnbounded(); // 请求无限次数据，用了该方法则 onNext 中无需再写 request(1)
+            }
+            @Override
+            protected void hookOnNext(Integer value) {
+                //System.out.println("当前数据:" + value + Thread.currentThread());
+                log.info("当前数据:{}", value);
+                if (value == 45) {
+                    cancel(); // 取消流
+                }
+                //request(1); // 继续要数据
+            }
+        });
+    }
+
+    @Test
+    void testThread() throws Exception {
         System.out.println(Thread.currentThread().getName());
         Scheduler publisherScheduler = Schedulers.newParallel("Publisher");
         Scheduler subscriberScheduler = Schedulers.newParallel("Subscriber");
         Flux.range(1, 3)
-                .doOnNext(item -> System.out.println("Publisher Default:" + item + Thread.currentThread().getName()))
+                .doOnNext(item -> System.out.println("Publisher Default: [" + item + "] "+ Thread.currentThread().getName()))
                 .publishOn(publisherScheduler)
-                .doOnNext(item -> System.out.println("Publisher publishOn:" + item + Thread.currentThread().getName()))
+                .doOnNext(item -> System.out.println("Publisher publishOn: [" + item + "] "+ Thread.currentThread().getName()))
                 .subscribeOn(subscriberScheduler)
-                .doOnNext(item -> System.out.println("Publisher subscribeOn:" + item + Thread.currentThread().getName()))
-                .subscribe(item -> System.out.println("Subscriber default:" + item + Thread.currentThread().getName()));
-        System.in.read();
+                .doOnNext(item -> System.out.println("Publisher subscribeOn: [" + item + "] "+Thread.currentThread().getName()))
+                .subscribe(item -> System.out.println("Subscriber default: [" + item + "] "+ Thread.currentThread().getName()));
+        Thread.sleep(1000);
     }
 
     @Test
-    void testDelayElements() throws IOException {
+    void testDelayElements() throws IOException, InterruptedException {
         Flux.range(0,5).delayElements(Duration.ofMillis(500)).log().subscribe();
-        System.in.read();
+        Thread.sleep(1000);
     }
 
 
@@ -202,7 +236,7 @@ class BasicApiTest {
      * transformDeferred：有状态转换; 每个订阅者transform都只执行一次
      */
     @Test
-    public void testTransform() {
+    public void testTransformDeferred() {
         AtomicInteger atomicInteger = new AtomicInteger(1);
         Flux<String> flux = Flux.just("a", "b", "c").transformDeferred(
                 items -> {
@@ -212,6 +246,19 @@ class BasicApiTest {
         flux.subscribe(System.out::println);
         flux.subscribe(System.out::println);
     }
+
+    @Test
+    void testTransform() {
+        AtomicInteger atomicInteger = new AtomicInteger(1);
+        Flux<String> flux = Flux.just("a", "b", "c").transform(
+                items -> {
+                    System.out.println("调用次数：" + atomicInteger.getAndIncrement());
+                    return items.map(String::toUpperCase);
+                });
+        flux.subscribe(System.out::println);
+        flux.subscribe(System.out::println);
+    }
+
 
     /**
      * 空流是 Flux.empty(); Flux.just(null) 会报空指针异常
@@ -253,12 +300,23 @@ class BasicApiTest {
     public void testRetry() throws IOException {
         Flux.just(1)
                 .log()
-                .delayElements(Duration.ofSeconds(2))
+                .delayElements(Duration.ofSeconds(5))
                 .timeout(Duration.ofSeconds(1))
                 .retry(2)
                 .onErrorReturn(999)
-                .subscribe();
+                .subscribe(value -> System.out.println("value = " + value));
         System.in.read();
+    }
+
+    @Test
+    void testOnErrorReturn() {
+        Flux.just(1,2,3)
+                .log()
+                .map(i -> i / 0)
+                .doOnError(e -> System.out.println("e = " + e))
+                .timeout(Duration.ofSeconds(1))
+                .onErrorReturn(999)
+                .subscribe(value -> System.out.println("value = " + value));
     }
 
     @Test
