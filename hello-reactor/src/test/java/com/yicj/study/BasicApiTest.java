@@ -128,9 +128,11 @@ class BasicApiTest {
      */
     @Test
     public void testGenerate() {
-        Flux.generate( () -> 0, (state, sink) -> {
+        Flux.generate(() -> 0, (state, sink) -> {
             sink.next(state);
-            if (state == 10) sink.complete();
+            if (state == 10){
+                sink.complete();
+            }
             return state + 1;
         }).log().subscribe();
     }
@@ -150,7 +152,7 @@ class BasicApiTest {
         class DoSomeThing {
 
             public void doSomeThing(String thing) {
-                System.out.println("做" + thing);
+                log.info("做" + thing);
                 for (Listener listener : afterListenerList) {
                     listener.afterDoSomeThing(thing);
                 }
@@ -164,8 +166,15 @@ class BasicApiTest {
         }
 
         DoSomeThing doSomeThing = new DoSomeThing();
-        Flux.create(sink -> doSomeThing.register(sink::next)).log().subscribe();
+        Flux.create(sink -> {
+                log.info("onSubscribe({})", sink);
+                doSomeThing.register(sink::next) ;
+            })
+            .log().
+            subscribe();
+        //
         doSomeThing.doSomeThing("家务");
+
     }
 
     /**
@@ -206,8 +215,11 @@ class BasicApiTest {
     public void testHandle() {
         Flux.range(1, 10)
                 .handle((value, sink) -> {
-                    if (value % 2 == 0) sink.next(value);
-                    else sink.next("字符串" + value);
+                    if (value % 2 == 0) {
+                        sink.next(value);
+                    } else {
+                        sink.next("字符串" + value);
+                    }
                 }).log().subscribe();
     }
 
@@ -281,7 +293,7 @@ class BasicApiTest {
     }
 
     /**
-     * Flux.merge：按照流中每个元素发布的时间顺序合并流
+     * Flux.merge：按照流中每个元素发布的时间顺序合并流个元素发布的时间顺序合并流
      * Flux.mergeSequential：按照流发布的时间顺序合并流，如流1中有多个元素且流1元素最先发布，则流1中元素会被合并到最开头
      */
     @Test
