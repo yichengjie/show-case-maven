@@ -37,7 +37,7 @@ class BasicApiTest {
     @Test
     void hello(){
         log.info("hello world");
-        Flux.just(1, 2, 3, 45, 0, 8).doOnNext(value -> {
+        Flux.just(1, 2, 45, 0, 8).doOnNext(value -> {
             System.out.println("一起玩" + value + Thread.currentThread());
         }).subscribe(new BaseSubscriber<>() {
             @Override
@@ -53,7 +53,17 @@ class BasicApiTest {
                 if (value == 45) {
                     cancel(); // 取消流
                 }
-                //request(1); // 继续要数据
+                request(1); // 继续要数据
+            }
+
+            @Override
+            protected void hookOnCancel() {
+                log.info("取消订阅");
+            }
+
+            @Override
+            protected void hookOnError(Throwable throwable) {
+                log.error("发生异常", throwable);
             }
         });
     }
