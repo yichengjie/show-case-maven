@@ -1,12 +1,11 @@
 package com.yicj.study;
 
 import lombok.extern.slf4j.Slf4j;
-import org.junit.Test;
 import reactor.core.publisher.Sinks;
-
 import java.io.IOException;
 import java.util.PriorityQueue;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Test;
 
 /**
  * <p>
